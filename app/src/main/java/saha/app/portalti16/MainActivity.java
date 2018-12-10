@@ -1,12 +1,16 @@
 package saha.app.portalti16;
 
+import android.content.DialogInterface;
 import android.content.Intent;
 import android.os.Bundle;
 import android.support.annotation.Nullable;
+import android.support.v7.app.AlertDialog;
 import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.LinearLayoutManager;
 import android.support.v7.widget.RecyclerView;
 import android.util.Log;
+import android.view.Menu;
+import android.view.MenuItem;
 import android.view.View;
 import android.view.Window;
 import android.widget.Button;
@@ -17,6 +21,7 @@ import retrofit2.Callback;
 import retrofit2.Response;
 import saha.app.portalti16.adapter.MahasiswaAdapter;
 import saha.app.portalti16.entity.DaftarMahasiswa;
+import saha.app.portalti16.entity.Mahasiswa;
 import saha.app.portalti16.network.Network;
 import saha.app.portalti16.network.Routes;
 
@@ -47,9 +52,26 @@ public class MainActivity extends AppCompatActivity{
         onButtonMahasiswa();
     }
 
+    @Override
+    public boolean onCreateOptionsMenu(Menu menu) {
+        getMenuInflater().inflate(R.menu.menu_main, menu);
+        return super.onCreateOptionsMenu(menu);
+    }
+
+    @Override
+    public boolean onOptionsItemSelected(MenuItem item) {
+        switch (item.getItemId()) {
+            case R.id.menu_refresh:
+                //ketika icon refresh di klik, maka panggil ...
+                requestDaftarMahasiswa();
+                break;
+        }
+        return super.onOptionsItemSelected(item);
+    }
+
     private void requestDaftarMahasiswa(){
         //pertama, memanggil request dari retrofit yang sudah dibuat
-        Routes services = Network.request().create(Routes.class);
+        final Routes services = Network.request().create(Routes.class);
 
         //kite melakukan request terhadap getMahasiswa()
         services.getMahasiswa().enqueue(new Callback<DaftarMahasiswa>() {
@@ -65,6 +87,15 @@ public class MainActivity extends AppCompatActivity{
 
                     //tampilkan daftar mahasiswa di recycler view
                     MahasiswaAdapter adapter = new MahasiswaAdapter(mahasiswas.getData());
+                    //untuk handle button delete di item mahasiswa
+                    //fungsinya untuk menghapus data yang ada di API
+                    adapter.setListener(new MahasiswaAdapter.MahasiswaListener() {
+                        @Override
+                        public void onDelete(int mhsId) {
+                            String id = String.valueOf(mhsId); //konversi int to string
+                            deleteMahasiswa(services, id);
+                        }
+                    });
                     lstMahasiswa.setAdapter(adapter);
                 }else{
                     onMahasiswaError();
@@ -91,6 +122,41 @@ public class MainActivity extends AppCompatActivity{
                 startActivity(pindah);
             }
         });
+    }
+
+    private void deleteMahasiswa(final Routes services, final String mhsId) {
+        AlertDialog.Builder alert = new AlertDialog.Builder(this);
+        alert.setTitle(R.string.app_name);
+        alert.setMessage("are you sure?");
+        alert.setNegativeButton("No", new DialogInterface.OnClickListener() {
+            @Override
+            public void onClick(DialogInterface dialog, int which) {
+
+            }
+        });
+        alert.setPositiveButton("Yes", new DialogInterface.OnClickListener() {
+            @Override
+            public void onClick(DialogInterface dialog, int which) {
+                services.deleteMahasiswa(mhsId).enqueue(new Callback<Mahasiswa>() {
+                    @Override
+                    public void onResponse(Call<Mahasiswa> call, Response<Mahasiswa> response) {
+                        if (response.isSuccessful()) {
+                            requestDaftarMahasiswa();
+                        } else {
+                            onMahasiswaError();
+                        }
+                    }
+
+                    @Override
+                    public void onFailure(Call<Mahasiswa> call, Throwable t) {
+
+                    }
+                });
+            }
+        });
+        alert.show();
+
+
     }
 
 
